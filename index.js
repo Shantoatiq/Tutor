@@ -1,14 +1,5 @@
-import { createReduxStore, register } from '@wordpress/data';
-import reducer from './reducer';
-import selectors from './selectors';
-import actions from './actions';
+import { createRoot } from '@wordpress/element';
+import App from './app';
 
-export const STORE_KEY = 'st-ai-builder';
-
-const store = createReduxStore( STORE_KEY, {
-	reducer,
-	actions,
-	selectors,
-} );
-
-register( store );
+const root = createRoot( document.getElementById( 'ai-builder-root' ) );
+root.render( <App /> );
