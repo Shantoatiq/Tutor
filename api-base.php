@@ -6,7 +6,7 @@
  * @since 0.0.1
  */
 
-namespace AiBuilder\Inc\Api;
+namespace Gutenberg_Templates\Inc\Api;
 
 /**
  * Api_Base
@@ -14,12 +14,13 @@ namespace AiBuilder\Inc\Api;
  * @since 0.0.1
  */
 abstract class Api_Base extends \WP_REST_Controller {
+
 	/**
 	 * Endpoint namespace.
 	 *
 	 * @var string
 	 */
-	protected $namespace = 'ai-builder/v1';
+	protected $namespace = 'gutenberg-templates/v1';
 
 	/**
 	 * Constructor
@@ -38,5 +39,5 @@ abstract class Api_Base extends \WP_REST_Controller {
 	public function get_api_namespace() {
 
 		return $this->namespace;
-	}
+	}   
 }
