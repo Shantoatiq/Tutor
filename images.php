@@ -1,174 +1,144 @@
 <?php
 /**
- * Images API.
+ * AI content generator and Images file.
  *
  * @package {{package}}
- * @since 2.0.0
+ * @since {{since}}
  */
 
-namespace Gutenberg_Templates\Inc\Api;
-
-// Exit if accessed directly.
-if ( ! defined( 'ABSPATH' ) ) {
-	exit;
-}
+namespace Gutenberg_Templates\Inc\Importer;
 
 use Gutenberg_Templates\Inc\Traits\Instance;
-use Gutenberg_Templates\Inc\Api\Api_Base;
+use Gutenberg_Templates\Inc\Traits\Helper;
+use Gutenberg_Templates\Inc\Importer\Importer_Helper;
+
 /**
- * Progress
+ * Images
  *
- * @since 2.0.0
+ * @since {{since}}
  */
-class Images extends Api_Base {
+class Images {
 
 	use Instance;
 
 	/**
-	 * Route base.
+	 * Images
 	 *
-	 * @var string
+	 * @since {{since}}
+	 * @var array<string, array<mixed>> $images
 	 */
-	protected $rest_base = '/images/';
+	public static $images = array(
+		'landscape' => array(),
+		'portrait'  => array(),
+		'square'    => array(),
+	);
 
 	/**
-	 * Init Hooks.
+	 * Image index
 	 *
-	 * @since 2.0.0
-	 * @return void
+	 * @since {{since}}
+	 * @var (int) image_index
 	 */
-	public function register_routes() {
+	public static $image_index = 0;
 
-		$namespace = $this->get_api_namespace();
+	/**
+	 * Get Images
+	 *
+	 * @return array<string|int, mixed> Array of images.
+	 * @since {{since}}
+	 */
+	public function get_images() {
 
-		register_rest_route(
-			$namespace,
-			$this->rest_base,
-			array(
-				array(
-					'methods'             => \WP_REST_Server::CREATABLE,
-					'callback'            => array( $this, 'get' ),
-					'permission_callback' => array( $this, 'get_item_permissions_check' ),
-					'args' => array(
-						'keywords' => array(
-							'type'     => 'string',
-							'required' => true,
-						),
-						'per_page' => array(
-							'type'     => 'integer',
-							'required' => false,
-						),
-						'page' => array(
-							'type'     => 'integer',
-							'required' => false,
-						),
-						'orientation' => array(
-							'type'     => 'string',
-							'sanitize_callback' => 'sanitize_text_field',
-							'required' => false,
-						),
-						'engine' => array(
-							'type'     => 'string',
-							'required' => false,
-							'sanitize_callback' => 'sanitize_text_field',
-						),
-					),
-				),
-			)
-		);
-
+		return Importer_Helper::get_business_details( 'images' );
 	}
 
 	/**
-	 * Check whether a given request has permission to read notes.
+	 * Get Image for the specified index and orientation
 	 *
-	 * @param  object $request WP_REST_Request Full details about the request.
-	 * @return object|boolean
+	 * @param int $index Index of the image.
+	 * @return array<int, mixed>|boolean Array of images or false.
+	 * @since {{since}}
 	 */
-	public function get_item_permissions_check( $request ) {
+	public function get_image( $index = 0 ) {
+		$images = $this->get_images();
+		Helper::instance()->ast_block_templates_log( 'Fetching image with index ' . $index );
+		return ( isset( $images[ $index ] ) ) ? $images[ $index ] : false;
+	}
 
-		if ( ! current_user_can( 'manage_ast_block_templates' ) ) {
-			return new \WP_Error(
-				'gt_rest_cannot_access',
-				__( 'Sorry, you are not allowed to do that.', 'astra-sites' ),
-				array( 'status' => rest_authorization_required_code() )
-			);
+	/**
+	 * Download image from URL.
+	 *
+	 * @param array<int|string, mixed> $image Image data.
+	 * @return int|\WP_Error Image ID or WP_Error.
+	 * @since {{since}}
+	 */
+	public function download_image( $image ) {
+		$id = isset( $image['id'] ) ? $image['id'] : 0;
+		$downloaded_ids = get_option( 'ast_block_downloaded_images', array() );
+
+		$downloaded_ids = ( is_array( $downloaded_ids ) ) ? $downloaded_ids : array();
+		if ( array_key_exists( $id, $downloaded_ids ) ) {
+			// Return already downloaded image.
+			return $downloaded_ids[ $id ];
 		}
-		return true;
+		/* This is a Pixabay code $name = $image['tags']; Pixabay. */
+		$name = 'zipwp-image-' . sanitize_title( $id );
+		/* This is a Pixabay code $url  = $image['largeImageURL']; Pixabay. */
+		$url = $image['url']; // Unsplash.
+
+		$description = isset( $image['description'] ) ? $image['description'] : '';
+
+		$name = preg_replace( '/\.[^.]+$/', '', $name ) . '.jpg';
+
+		Helper::instance()->ast_block_templates_log( 'Downloading Image as "' . $name . '" : ' . $url );
+
+		$wp_id = $this->create_image_from_url( $url, $name, $id, $description );
+		$downloaded_ids[ $id ] = $wp_id;
+		update_option( 'ast_block_downloaded_images', $downloaded_ids );
+		return $wp_id;
+
 	}
 
 	/**
-	 * Save Prompts.
+	 * Create the image and return the new media upload id.
 	 *
-	 * @param \WP_REST_Request $request Full details about the request.
+	 * @param String $url URL to the image.
+	 * @param String $name Name to the image.
+	 * @param String $photo_id Photo ID to the image.
+	 * @param String $description Description to the image.
 	 * @return mixed
+	 * @see http://codex.wordpress.org/Function_Reference/wp_insert_attachment#Example
 	 */
-	public function get( $request ) {
+	public function create_image_from_url( $url, $name, $photo_id, $description ) {
+		require_once ABSPATH . 'wp-admin/includes/media.php';
+		require_once ABSPATH . 'wp-admin/includes/file.php';
+		require_once ABSPATH . 'wp-admin/includes/image.php';
+		$file_array         = array();
+		$file_array['name'] = wp_basename( $name );
 
-		$nonce = (string) $request->get_header( 'X-WP-Nonce' );
-		// Verify the nonce.
-		if ( ! wp_verify_nonce( sanitize_text_field( $nonce ), 'wp_rest' ) ) {
-			wp_send_json_error(
-				array(
-					'data' => __( 'Nonce verification failed.', 'astra-sites' ),
-					'status'  => false,
+		// Download file to temp location.
+		$file_array['tmp_name'] = download_url( $url );
 
-				)
-			);
+		// If error storing temporarily, return the error.
+		if ( is_wp_error( $file_array['tmp_name'] ) ) {
+			return $file_array;
 		}
 
-		$api_endpoint = AST_BLOCK_TEMPLATES_LIBRARY_URL . 'wp-json/image/v1/images';
+		// Do the validation and storage stuff.
+		$id = media_handle_sideload( $file_array, 0, null );
 
-		$post_data = array(
-			'keywords' => isset( $request['keywords'] ) ? $request['keywords'] : '',
-			'per_page' => isset( $request['per_page'] ) ? $request['per_page'] : 20,
-			'page' => isset( $request['page'] ) ? $request['page'] : 1,
-			'orientation' => isset( $request['orientation'] ) ? sanitize_text_field( $request['orientation'] ) : '',
-			'engine' => isset( $request['engine'] ) ? sanitize_text_field( $request['engine'] ) : '',
-		);
-
-		$body = wp_json_encode( $post_data );
-		$request_args = array(
-			'body' => is_string( $body ) ? $body : '',
-			'headers' => array(
-				'Content-Type' => 'application/json',
-			),
-			'timeout' => 100,
-		);
-		$response = wp_safe_remote_post( $api_endpoint, $request_args );
-
-
-
-		if ( is_wp_error( $response ) ) {
-			// There was an error in the request.
-			wp_send_json_error(
-				array(
-					'data' => 'Failed ' . $response->get_error_message(),
-					'status'  => false,
-
-				)
-			);
-		} else {
-			$response_code = wp_remote_retrieve_response_code( $response );
-			$response_body = wp_remote_retrieve_body( $response );
-			if ( 200 === $response_code ) {
-				$response_data = json_decode( $response_body, true );
-				wp_send_json_success(
-					array(
-						'data' => $response_data,
-						'status'  => true,
-					)
-				);
-
-			} else {
-				wp_send_json_error(
-					array(
-						'data' => 'Failed',
-						'status'  => false,
-
-					)
-				);
-			}
+		// If error storing permanently, unlink.
+		if ( is_wp_error( $id ) ) {
+			@unlink( $file_array['tmp_name'] ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPressVIPMinimum.Functions.RestrictedFunctions.file_ops_unlink -- Deleting the file from temp location.
+			return $id;
 		}
+
+		$alt = ( '' === $description ) ? $name : $description;
+
+		// Store the original attachment source in meta.
+		add_post_meta( $id, '_source_url', $url );
+		update_post_meta( $id, '_wp_attachment_image_alt', $alt );
+
+		return $id;
 	}
 }

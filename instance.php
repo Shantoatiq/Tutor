@@ -6,18 +6,19 @@
  * @since 0.0.1
  */
 
-namespace AiBuilder\Inc\Traits;
+namespace Gutenberg_Templates\Inc\Traits;
 
 /**
  * Trait Instance.
  */
 trait Instance {
+
 	/**
 	 * Instance object.
 	 *
 	 * @var self Class Instance.
 	 */
-	public static $instance = null;
+	private static $instance = null;
 
 	/**
 	 * Initiator
@@ -32,3 +33,4 @@ trait Instance {
 		return self::$instance;
 	}
 }
+
