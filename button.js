@@ -81,7 +81,7 @@ const Button = (
 				hasSuffixIcon && sizeClassNames[ buttonSize ].hasSuffixIcon,
 				typographyClassNames[ buttonSize ],
 				borderRadiusClassNames[ buttonSize ],
-				disabled && 'cursor-not-allowed opacity-50',
+				disabled && 'cursor-not-allowed opacity-70',
 				className
 			) }
 			onClick={ handleOnClick }

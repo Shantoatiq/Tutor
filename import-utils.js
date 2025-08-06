@@ -1,17 +1,14 @@
 import { __ } from '@wordpress/i18n';
+const { themeStatus } = starterTemplates;
 import apiFetch from '@wordpress/api-fetch';
-import toast from 'react-hot-toast';
-import { toastBody } from '../../helpers';
-
-const { themeStatus } = aiBuilderVars;
 
 export const getDemo = async ( id, storedState ) => {
 	const [ { currentIndex }, dispatch ] = storedState;
 
 	const generateData = new FormData();
-	generateData.append( 'action', 'astra-sites-api_request' );
+	generateData.append( 'action', 'astra-sites-api-request' );
 	generateData.append( 'url', 'astra-sites/' + id );
-	generateData.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
+	generateData.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
 
 	await fetch( ajaxurl, {
 		method: 'post',
@@ -20,14 +17,21 @@ export const getDemo = async ( id, storedState ) => {
 		.then( ( response ) => response.json() )
 		.then( ( response ) => {
 			if ( response.success ) {
-				aiBuilderVars.previewUrl =
+				const isEcommerce = response?.data[ 'required-plugins' ]?.some(
+					( plugin ) =>
+						plugin?.slug === 'surecart' ||
+						plugin?.slug === 'woocommerce'
+				);
+				starterTemplates.previewUrl =
 					'https:' + response.data[ 'astra-site-url' ];
 				dispatch( {
+					type: 'set',
 					templateId: id,
 					templateResponse: response.data,
 					importErrorMessages: {},
 					importErrorResponse: [],
 					importError: false,
+					isEcommerce,
 				} );
 			} else {
 				let errorMessages = {};
@@ -39,7 +43,7 @@ export const getDemo = async ( id, storedState ) => {
 						case '404':
 							errorMessages = {
 								primaryText:
-									aiBuilderVars.server_import_primary_error,
+									astraSitesVars?.server_import_primary_error,
 								secondaryText: '',
 								errorCode: code,
 								errorText: response.data.message,
@@ -50,12 +54,12 @@ export const getDemo = async ( id, storedState ) => {
 						case '500':
 							errorMessages = {
 								primaryText:
-									aiBuilderVars.server_import_primary_error,
+									astraSitesVars?.server_import_primary_error,
 								secondaryText: '',
 								errorCode: code,
 								errorText: response.data.message,
 								solutionText:
-									aiBuilderVars.ajax_request_failed_secondary,
+									astraSitesVars?.ajax_request_failed_secondary,
 								tryAgain: true,
 							};
 							break;
@@ -63,7 +67,7 @@ export const getDemo = async ( id, storedState ) => {
 						case 'WP_Error':
 							errorMessages = {
 								primaryText:
-									aiBuilderVars.client_import_primary_error,
+									astraSitesVars?.client_import_primary_error,
 								secondaryText: '',
 								errorCode: code,
 								errorText: response.data.message,
@@ -75,7 +79,7 @@ export const getDemo = async ( id, storedState ) => {
 						case 'Cloudflare':
 							errorMessages = {
 								primaryText:
-									aiBuilderVars.cloudflare_import_primary_error,
+									astraSitesVars?.cloudflare_import_primary_error,
 								secondaryText: '',
 								errorCode: code,
 								errorText: response.data.message,
@@ -88,18 +92,19 @@ export const getDemo = async ( id, storedState ) => {
 							errorMessages = {
 								primaryText: __(
 									'Fetching related demo failed.',
-									'ai-builder'
+									'astra-sites'
 								),
 								secondaryText: '',
 								errorCode: '',
 								errorText: response.data,
 								solutionText:
-									aiBuilderVars.ajax_request_failed_secondary,
+									astraSitesVars?.ajax_request_failed_secondary,
 								tryAgain: false,
 							};
 							break;
 					}
 					dispatch( {
+						type: 'set',
 						importError: true,
 						importErrorMessages: errorMessages,
 						importErrorResponse: response.data,
@@ -111,13 +116,15 @@ export const getDemo = async ( id, storedState ) => {
 		} )
 		.catch( ( error ) => {
 			dispatch( {
+				type: 'set',
 				importError: true,
 				importErrorMessages: {
 					primaryText: __(
 						'Fetching related demo failed.',
-						'ai-builder'
+						'astra-sites'
 					),
-					secondaryText: aiBuilderVars?.ajax_request_failed_secondary,
+					secondaryText:
+						astraSitesVars?.ajax_request_failed_secondary,
 					errorCode: '',
 					errorText: error,
 					solutionText: '',
@@ -129,9 +136,10 @@ export const getDemo = async ( id, storedState ) => {
 
 export const getAiDemo = async (
 	{ businessName, selectedTemplate },
-	dispatch,
+	storedState,
 	websiteInfo
 ) => {
+	const [ , dispatch ] = storedState;
 	const { uuid } = websiteInfo;
 	const aiResponse = await apiFetch( {
 		path: 'zipwp/v1/ai-site',
@@ -145,6 +153,7 @@ export const getAiDemo = async (
 
 	if ( aiResponse.success ) {
 		dispatch( {
+			type: 'set',
 			templateId: selectedTemplate,
 			templateResponse: aiResponse.data?.data,
 			importErrorMessages: {},
@@ -154,9 +163,10 @@ export const getAiDemo = async (
 		return { success: true, data: aiResponse.data?.data };
 	}
 	dispatch( {
+		type: 'set',
 		importError: true,
 		importErrorMessages: {
-			primaryText: __( 'Fetching related demo failed.', 'ai-builder' ),
+			primaryText: __( 'Fetching related demo failed.', 'astra-sites' ),
 			secondaryText: '',
 			errorCode: '',
 			errorText:
@@ -170,10 +180,22 @@ export const getAiDemo = async (
 	return { success: false, data: aiResponse.data };
 };
 
-export const checkRequiredPlugins = async ( dispatch ) => {
+export const checkRequiredPlugins = async ( storedState ) => {
+	const [ { enabledFeatureIds, selectedEcommercePlugin }, dispatch ] =
+		storedState;
 	const reqPlugins = new FormData();
 	reqPlugins.append( 'action', 'astra-sites-required_plugins' );
-	reqPlugins.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
+	reqPlugins.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
+	if ( enabledFeatureIds.length !== 0 ) {
+		const featurePlugins = getFeaturePluginList(
+			enabledFeatureIds,
+			selectedEcommercePlugin
+		);
+		reqPlugins.append(
+			'feature_plugins',
+			JSON.stringify( featurePlugins )
+		);
+	}
 
 	await fetch( ajaxurl, {
 		method: 'post',
@@ -186,121 +208,125 @@ export const checkRequiredPlugins = async ( dispatch ) => {
 				const notInstalledPlugin = rPlugins.notinstalled || '';
 				const notActivePlugins = rPlugins.inactive || '';
 				dispatch( {
+					type: 'set',
 					requiredPlugins: response.data,
 					notInstalledList: notInstalledPlugin,
 					notActivatedList: notActivePlugins,
-				} );
-			} else {
-				dispatch( {
-					importError: true,
-					importErrorMessages: {
-						primaryText: __(
-							'Required plugins could not be verified.',
-							'ai-builder'
-						),
-						tryAgain: true,
-						errorText: response?.data?.error,
-					},
 				} );
 			}
 		} );
 };
 
-export const getFeaturePluginList = (
+export function getFeaturePluginList(
 	features,
 	selectedEcommercePlugin,
-	siteFeatures
-) => {
+	templateRequiredPluginsSlugList = []
+) {
 	const requiredPlugins = [];
 
 	features?.forEach( ( feature ) => {
 		switch ( feature ) {
 			case 'ecommerce':
 				if ( selectedEcommercePlugin === 'surecart' ) {
-					requiredPlugins.push( {
-						name: 'SureCart',
-						slug: 'surecart',
-						compulsory: siteFeatures?.find(
-							( f ) => f.id === 'ecommerce'
-						)?.compulsory,
-					} );
+					if (
+						! templateRequiredPluginsSlugList.includes( 'surecart' )
+					) {
+						requiredPlugins.push( {
+							name: 'SureCart',
+							slug: 'surecart',
+							init: 'surecart/surecart.php',
+						} );
+					}
 				} else if ( selectedEcommercePlugin === 'woocommerce' ) {
-					requiredPlugins.push( {
-						name: 'WooCommerce',
-						slug: 'woocommerce',
-						compulsory: siteFeatures?.find(
-							( f ) => f.id === 'ecommerce'
-						)?.compulsory,
-					} );
+					if (
+						! templateRequiredPluginsSlugList.includes(
+							'woocommerce'
+						)
+					) {
+						requiredPlugins.push( {
+							name: 'WooCommerce',
+							slug: 'woocommerce',
+							init: 'woocommerce/woocommerce.php',
+						} );
+					}
+
+					if (
+						! templateRequiredPluginsSlugList.includes(
+							'woocommerce-payments'
+						)
+					) {
+						requiredPlugins.push( {
+							name: 'WooPayments',
+							slug: 'woocommerce-payments',
+							init: 'woocommerce-payments/woocommerce-payments.php',
+						} );
+					}
 				}
 				break;
 			case 'donations':
 				requiredPlugins.push( {
 					name: 'SureCart',
 					slug: 'surecart',
-					compulsory: siteFeatures?.find(
-						( f ) => f.id === 'ecommerce'
-					)?.compulsory,
+					init: 'surecart/surecart.php',
 				} );
 				break;
 			case 'automation-integrations':
 				requiredPlugins.push( {
 					name: 'OttoKit',
 					slug: 'suretriggers',
-					compulsory: siteFeatures?.find(
-						( f ) => f.id === 'automation-integrations'
-					)?.compulsory,
+					init: 'suretriggers/suretriggers.php',
 				} );
 				break;
 			case 'smtp':
 				requiredPlugins.push( {
 					name: 'Suremail',
 					slug: 'suremails',
-					compulsory: siteFeatures?.find( ( f ) => f.id === 'smtp' )
-						?.compulsory,
+					init: 'suremails/suremails.php',
 				} );
 				break;
-			case 'sure-rank':
+			case 'seo':
 				requiredPlugins.push( {
 					name: 'SureRank',
 					slug: 'surerank',
-					compulsory: siteFeatures?.find(
-						( f ) => f.id === 'sure-rank'
-					)?.compulsory,
+					init: 'surerank/surerank.php',
 				} );
 				break;
 			case 'sales-funnels':
 				requiredPlugins.push( {
 					name: 'CartFlows',
 					slug: 'cartflows',
+					init: 'cartflows/cartflows.php',
 				} );
 				requiredPlugins.push( {
 					name: 'Woocommerce Cart Abandonment Recovery',
 					slug: 'woo-cart-abandonment-recovery',
+					init: 'woo-cart-abandonment-recovery/woo-cart-abandonment-recovery.php',
 				} );
 				break;
 			case 'video-player':
 				requiredPlugins.push( {
 					name: 'Preso Player',
 					slug: 'presto-player',
+					init: 'presto-player/presto-player.php',
 				} );
 				break;
 			case 'appointment-bookings':
-				requiredPlugins.push( {
-					name: 'Latepoint',
-					slug: 'latepoint',
-					compulsory: siteFeatures?.find(
-						( f ) => f.id === 'appointment-bookings'
-					)?.compulsory,
-				} );
+				if (
+					! templateRequiredPluginsSlugList.includes( 'latepoint' )
+				) {
+					requiredPlugins.push( {
+						name: 'Latepoint',
+						slug: 'latepoint',
+						init: 'latepoint/latepoint.php',
+					} );
+				}
+
 				break;
 			case 'live-chat':
 				requiredPlugins.push( {
 					name: '3CX',
 					slug: 'wp-live-chat-support',
-					compulsory: siteFeatures?.find(
-						( f ) => f.id === 'live-chat'
-					)?.compulsory,
+					init: 'wp-live-chat-support/wp-live-chat-support.php',
 				} );
 				break;
 			default:
@@ -309,12 +335,14 @@ export const getFeaturePluginList = (
 	} );
 
 	return requiredPlugins;
-};
+}
 
-export const activateAstra = ( dispatch ) => {
+export const activateAstra = ( storedState ) => {
+	const [ , dispatch ] = storedState;
+
 	const data = new FormData();
 	data.append( 'action', 'astra-sites-activate_theme' );
-	data.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
+	data.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
 
 	fetch( ajaxurl, {
 		method: 'post',
@@ -324,16 +352,18 @@ export const activateAstra = ( dispatch ) => {
 		.then( ( response ) => {
 			if ( response.success ) {
 				dispatch( {
+					type: 'set',
 					themeStatus: response,
-					importStatus: __( 'Astra Theme Installed.', 'ai-builder' ),
+					importStatus: __( 'Astra Theme Installed.', 'astra-sites' ),
 				} );
 			} else {
 				dispatch( {
+					type: 'set',
 					importError: true,
 					importErrorMessages: {
 						primaryText: __(
-							'Astra theme activation failed.',
-							'ai-builder'
+							'Astra theme installation failed.',
+							'astra-sites'
 						),
 						secondaryText: '',
 						errorCode: '',
@@ -350,15 +380,12 @@ export const activateAstra = ( dispatch ) => {
 		} );
 };
 
-export const installAstra = ( importPercent, dispatch ) => {
+export const installAstra = ( storedState ) => {
+	const [ { importPercent }, dispatch ] = storedState;
 	const themeSlug = 'astra';
 	let percentage = importPercent;
+
 	if ( 'not-installed' === themeStatus ) {
-		percentage += 5;
-		dispatch( {
-			importPercent: percentage,
-			importStatus: __( 'Installing Astra Theme…', 'ai-builder' ),
-		} );
 		if (
 			wp.updates.shouldRequestFilesystemCredentials &&
 			! wp.updates.ajaxLocked
@@ -366,48 +393,39 @@ export const installAstra = ( importPercent, dispatch ) => {
 			wp.updates.requestFilesystemCredentials();
 		}
 
-		wp.updates
-			.installTheme( {
-				slug: themeSlug,
-				ajax_nonce: aiBuilderVars._ajax_nonce,
-			} )
-			.catch( ( error ) => {
-				console.log( error );
-				dispatch( {
-					importError: true,
-					importErrorMessages: {
-						primaryText:
-							error?.errorMessage ??
-							__( 'Theme installation failed.', 'ai-builder' ),
-						tryAgain: true,
-					},
-				} );
-			} );
+		percentage += 5;
+		dispatch( {
+			type: 'set',
+			importPercent: percentage,
+			importStatus: __( 'Installing Astra Theme…', 'astra-sites' ),
+		} );
 
+		wp.updates.installTheme( {
+			slug: themeSlug,
+			ajax_nonce: astraSitesVars?._ajax_nonce,
+		} );
+
+		// eslint-disable-next-line no-undef
 		jQuery( document ).on( 'wp-theme-install-success', function () {
 			dispatch( {
-				importStatus: __( 'Astra Theme Installed.', 'ai-builder' ),
+				type: 'set',
+				importStatus: __( 'Astra Theme Installed.', 'astra-sites' ),
 			} );
-			activateAstra( dispatch );
+			activateAstra( storedState );
 		} );
 	}
 
 	if ( 'installed-but-inactive' === themeStatus ) {
 		// WordPress adds "Activate" button after waiting for 1000ms. So we will run our activation after that.
-		setTimeout( () => activateAstra( dispatch ), 3000 );
+		setTimeout( () => activateAstra( storedState ), 3000 );
 	}
 
 	if ( 'installed-and-active' === themeStatus ) {
 		dispatch( {
+			type: 'set',
 			themeStatus: true,
 		} );
 	}
-};
-
-export const showErrorToast = ( title = '', error = {} ) => {
-	toast.error(
-		toastBody( { title, message: JSON.stringify( error, null, 4 ) } )
-	);
 };
 
 export const setSiteLogo = async ( logo ) => {
@@ -419,14 +437,12 @@ export const setSiteLogo = async ( logo ) => {
 	data.append( 'param', 'site-logo' );
 	data.append( 'logo', logo.id );
 	data.append( 'logo-width', logo.width );
-	data.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
+	data.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
 
 	await fetch( ajaxurl, {
 		method: 'post',
 		body: data,
-	} ).catch( ( e ) =>
-		showErrorToast( __( 'Failed to save Site Logo', 'ai-builder' ), e )
-	);
+	} );
 };
 
 export const setColorPalettes = async ( palette ) => {
@@ -438,17 +454,15 @@ export const setColorPalettes = async ( palette ) => {
 	data.append( 'action', 'astra-sites-set_site_data' );
 	data.append( 'param', 'site-colors' );
 	data.append( 'palette', palette );
-	data.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
+	data.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
 
 	await fetch( ajaxurl, {
 		method: 'post',
 		body: data,
-	} ).catch( ( e ) =>
-		showErrorToast( __( 'Failed to save Color Palletes', 'ai-builder' ), e )
-	);
+	} );
 };
 
-export const setSiteTitle = async ( businessName, showSiteTitle ) => {
+export const setSiteTitle = async ( businessName ) => {
 	if ( ! businessName ) {
 		return;
 	}
@@ -457,15 +471,28 @@ export const setSiteTitle = async ( businessName, showSiteTitle ) => {
 	data.append( 'action', 'astra-sites-set_site_data' );
 	data.append( 'param', 'site-title' );
 	data.append( 'business-name', businessName );
-	data.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
-	data.append( 'show-site-title', showSiteTitle );
+	data.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
 
 	await fetch( ajaxurl, {
 		method: 'post',
 		body: data,
-	} ).catch( ( e ) =>
-		showErrorToast( __( 'Failed to save Color Palletes', 'ai-builder' ), e )
-	);
+	} );
+};
+
+export const setSiteLanguage = async ( siteLanguage = 'en_US' ) => {
+	if ( ! siteLanguage ) {
+		return;
+	}
+
+	const data = new FormData();
+	data.append( 'action', 'astra-sites-site-language' );
+	data.append( 'language', siteLanguage );
+	data.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
+
+	await fetch( ajaxurl, {
+		method: 'post',
+		body: data,
+	} );
 };
 
 export const saveTypography = async ( selectedValue ) => {
@@ -473,14 +500,12 @@ export const saveTypography = async ( selectedValue ) => {
 	data.append( 'action', 'astra-sites-set_site_data' );
 	data.append( 'param', 'site-typography' );
 	data.append( 'typography', JSON.stringify( selectedValue ) );
-	data.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
+	data.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
 
 	await fetch( ajaxurl, {
 		method: 'post',
 		body: data,
-	} ).catch( ( e ) =>
-		showErrorToast( __( 'Failed to save Typography', 'ai-builder' ), e )
-	);
+	} );
 };
 
 export const divideIntoChunks = ( chunkSize, inputArray ) => {
@@ -498,45 +523,29 @@ export const divideIntoChunks = ( chunkSize, inputArray ) => {
 		counter++;
 	}
 	final.push( portion );
+
 	return final;
 };
 
-export const checkFileSystemPermissions = async ( dispatch ) => {
-	const formData = new FormData();
-	formData.append( 'action', 'astra-sites-filesystem_permission' );
-	formData.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
-	const data = await fetch( aiBuilderVars.ajax_url, {
-		method: 'POST',
-		body: formData,
-	} )
-		.then( ( res ) => res.json )
-		.catch( ( e ) =>
-			showErrorToast(
-				__( 'Failed to check File Permissions', 'ai-builder' ),
-				e
-			)
-		);
-	dispatch( {
-		fileSystemPermissions: data.data,
-	} );
-};
+export const checkFileSystemPermissions = async ( [ , dispatch ] ) => {
+	try {
+		const formData = new FormData();
+		formData.append( 'action', 'astra-sites-filesystem_permission' );
+		formData.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
+		const response = await fetch( astraSitesVars?.ajaxurl, {
+			method: 'POST',
+			body: formData,
+		} );
+		const data = await response.json();
 
-export const setSiteLanguage = async ( siteLanguage = 'en_US' ) => {
-	if ( ! siteLanguage ) {
-		return;
+		dispatch( {
+			type: 'set',
+			fileSystemPermissions: data.data,
+		} );
+	} catch ( error ) {
+		/* eslint-disable-next-line no-console -- We are displaying errors in the console. */
+		console.error( error );
 	}
-
-	const data = new FormData();
-	data.append( 'action', 'astra-sites-site_language' );
-	data.append( 'language', siteLanguage );
-	data.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
-
-	await fetch( ajaxurl, {
-		method: 'post',
-		body: data,
-	} ).catch( ( e ) =>
-		showErrorToast( __( 'Failed to save Site Language', 'ai-builder' ), e )
-	);
 };
 
 export const generateAnalyticsLead = async ( tryAgainCount, status, data ) => {
@@ -544,8 +553,8 @@ export const generateAnalyticsLead = async ( tryAgainCount, status, data ) => {
 	importContent.append( 'action', 'astra-sites-generate-analytics-lead' );
 	importContent.append( 'status', status );
 	importContent.append( 'try-again-count', tryAgainCount );
-	importContent.append( 'type', 'ai_builder' );
-	importContent.append( '_ajax_nonce', aiBuilderVars._ajax_nonce );
+	importContent.append( 'type', 'astra-sites' );
+	importContent.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
 
 	// Append extra data.
 	Object.entries( data ).forEach( ( [ key, value ] ) =>

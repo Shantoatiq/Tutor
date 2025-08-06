@@ -1,74 +1,28 @@
-import unescape from 'lodash';
-import { select, dispatch } from '@wordpress/data';
-import { __, sprintf } from '@wordpress/i18n';
+import clsx from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { __ } from '@wordpress/i18n';
 import { decodeEntities } from '@wordpress/html-entities';
-
-const { imageDir, supportLink } = aiBuilderVars;
-
-export const _unescape = ( title = '' ) => {
-	// WordPress encoded chars.
-	title = title.replace( '&#038;', '&' );
-	title = title.replace( '&amp;', '&' );
-
-	// Unescape all charactors.
-	title = unescape( title );
-
-	return title.__wrapped__;
-};
-
-export const savePostIfSpectraInactive = async () => {
-	const currentPostId = select( 'core/editor' )?.getCurrentPostId();
-	if ( currentPostId ) {
-		let message;
-		try {
-			message = __(
-				'Installed the required plugin. The page will be saved and refreshed.',
-				'ai-builder'
-			);
-			displayNotice( 'success', message );
-			await dispatch( 'core/editor' ).savePost( currentPostId );
-			window.location.reload();
-		} catch ( error ) {
-			message = sprintf(
-				/* translators: %s: error message */
-				__( `Error saving the page: %s`, 'ai-builder' ),
-				error
-			);
-			displayNotice( 'error', message );
-		}
-	}
-};
-
-const displayNotice = ( status, message ) => {
-	( function ( wp ) {
-		wp.data.dispatch( 'core/notices' ).createNotice(
-			status, // Can be one of: success, info, warning, error.
-			message, // Text string to display.
-			{
-				isDismissible: true, // Whether the user can dismiss the notice.
-			}
-		);
-	} )( window.wp );
-};
+import { ReactComponent as BlackDiamond } from '../../images/black-diamond.svg';
+import { STEPS } from '../steps/util';
 
 export const whiteLabelEnabled = () => {
-	return aiBuilderVars.isWhiteLabeled ? true : false;
+	return astraSitesVars?.isWhiteLabeled ? true : false;
 };
 
 export const getWhileLabelName = () => {
-	return aiBuilderVars.whiteLabelName;
+	return astraSitesVars?.whiteLabelName;
 };
 
 export const getWhiteLabelAuthorUrl = () => {
-	return aiBuilderVars.whiteLabelUrl;
+	return astraSitesVars?.whiteLabelUrl;
 };
 
 export const isPro = () => {
-	return aiBuilderVars.isPro;
+	return astraSitesVars?.isPro;
 };
 
 export const getProUrl = () => {
-	return aiBuilderVars.getProURL;
+	return astraSitesVars?.getProURL;
 };
 
 export const sendPostMessage = ( data ) => {
@@ -127,13 +81,13 @@ export const getDefaultColorPalette = ( demo ) => {
 		if ( customizerData ) {
 			const globalPalette =
 				customizerData[ 'astra-settings' ][ 'global-color-palette' ]
-					.palette || [];
+					?.palette || [];
 
 			if ( globalPalette ) {
 				defaultPaletteValues = [
 					{
 						slug: 'default',
-						title: __( 'Original', 'ai-builder' ),
+						title: __( 'Original', 'astra-sites' ),
 						colors: globalPalette,
 					},
 				];
@@ -198,28 +152,6 @@ export const getHeadingFonts = ( demo ) => {
 	return headingFonts;
 };
 
-export const getFontName = ( fontName, inheritFont ) => {
-	if ( ! fontName ) {
-		return '';
-	}
-
-	if ( fontName ) {
-		const matches = fontName.match( /'([^']+)'/ );
-
-		if ( matches ) {
-			return matches[ 1 ];
-		} else if ( 'inherit' === fontName ) {
-			return inheritFont;
-		}
-
-		return fontName;
-	}
-
-	if ( inheritFont ) {
-		return inheritFont;
-	}
-};
-
 export const getColorScheme = ( demo ) => {
 	let colorScheme = 'light';
 
@@ -234,31 +166,43 @@ export const getColorScheme = ( demo ) => {
 };
 
 export const getAllSites = () => {
-	return aiBuilderVars?.all_sites;
+	return astraSitesVars?.all_sites;
 };
 
 export const getSupportLink = ( templateId, subject ) => {
-	return `${ supportLink }&template-id=${ templateId }&subject=${ subject }`;
+	return `${ starterTemplates.supportLink }&template-id=${ templateId }&subject=${ subject }`;
 };
 
 export const getGridItem = ( site ) => {
 	let imageUrl = site[ 'thumbnail-image-url' ] || '';
 	if ( '' === imageUrl && false === whiteLabelEnabled() ) {
-		if ( aiBuilderVars?.default_page_builder === 'fse' ) {
-			imageUrl = `${ imageDir }spectra-placeholder.png`;
+		if ( astraSitesVars?.default_page_builder === 'fse' ) {
+			imageUrl = `${ starterTemplates.imageDir }spectra-placeholder.png`;
 		} else {
-			imageUrl = `${ imageDir }placeholder.png`;
+			imageUrl = `${ starterTemplates.imageDir }placeholder.png`;
 		}
+	}
+
+	let badge = '';
+	let type = 'free';
+	if ( site[ 'astra-sites-type' ] === 'signature' ) {
+		badge = (
+			<>
+				<BlackDiamond /> { __( 'Signature', 'astra-sites' ) }
+			</>
+		);
+		type = 'signature';
+	} else if ( site[ 'astra-sites-type' ] !== 'free' ) {
+		badge = <>{ __( 'Premium', 'astra-sites' ) }</>;
+		type = 'premium';
 	}
 
 	return {
 		id: site.id,
 		image: imageUrl,
 		title: decodeEntities( site.title ),
-		badge:
-			'free' !== site[ 'astra-sites-type' ]
-				? __( 'Premium', 'ai-builder' )
-				: '',
+		type,
+		badge,
 		...site,
 	};
 };
@@ -273,4 +217,80 @@ export const getTotalTime = ( value ) => {
 	}
 
 	return '0.' + seconds;
+};
+
+export const saveGutenbergAsDefaultBuilder = ( pageBuilder = 'gutenberg' ) => {
+	const content = new FormData();
+	content.append( 'action', 'astra-sites-change-page-builder' );
+	content.append( '_ajax_nonce', astraSitesVars?._ajax_nonce );
+	content.append( 'page_builder', pageBuilder );
+
+	fetch( ajaxurl, {
+		method: 'post',
+		body: content,
+	} );
+};
+
+export const classNames = ( ...classes ) => twMerge( clsx( classes ) );
+
+/**
+ *
+ * @param {string} key
+ * @param {any}    value
+ * @return {any} value
+ */
+export const setLocalStorageItem = ( key, value ) => {
+	try {
+		if ( typeof window === 'undefined' ) {
+			return;
+		}
+		localStorage.setItem( key, JSON.stringify( value ) );
+	} catch ( error ) {
+		// Handle error (e.g., localStorage is full, etc.)
+	}
+};
+
+/**
+ * Get localStorage item
+ *
+ * @param {string} key
+ * @return {any} value
+ */
+export const removeLocalStorageItem = ( key ) => {
+	try {
+		if ( typeof window === 'undefined' ) {
+			return;
+		}
+		localStorage.removeItem( key );
+	} catch ( error ) {
+		console.error( 'Error while removing localStorage:', error );
+	}
+};
+
+export const debounce = ( func, wait, immediate ) => {
+	let timeout;
+	return ( ...args ) => {
+		const later = () => {
+			timeout = null;
+			if ( ! immediate ) {
+				func( ...args );
+			}
+		};
+		const callNow = immediate && ! timeout;
+		clearTimeout( timeout );
+		timeout = setTimeout( later, wait );
+		if ( callNow ) {
+			func( ...args );
+		}
+	};
+};
+
+/**
+ * Get step index from step name.
+ *
+ * @param {string} name
+ * @return {number} index
+ */
+export const getStepIndex = ( name = '' ) => {
+	return STEPS.findIndex( ( step ) => step.name === name );
 };

@@ -1,18 +1,19 @@
-import { useEffect } from '@wordpress/element';
-import { useSelect, useDispatch } from '@wordpress/data';
+import React, { useEffect } from 'react';
 import { PhotoIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { __ } from '@wordpress/i18n';
 import { addFilter } from '@wordpress/hooks';
 import { RangeControl } from '@wordpress/components';
 import { MediaUpload } from '@wordpress/media-utils';
-import { getDataUri } from '../utils/functions';
-import { siteLogoDefault } from '../store/reducer';
-import ToggleSwitch from './toggle-switch';
-import { sendPostMessage } from '../utils/helpers';
-import { STORE_KEY } from '../store';
+import { useStateValue } from '../../store/store';
+import { getDataUri, sendPostMessage } from '../../utils/functions';
+import { initialState } from '../../store/reducer';
+// import ToggleSwitch from '../../components/toggle-switch';
 
 const SiteLogo = () => {
 	const replaceMediaUpload = () => MediaUpload;
+	const [ { siteLogo }, dispatch ] = useStateValue();
+	// const [ showTitle, setShowTitle ] = useState( true ),
+	// 	toggleTitle = () => setShowTitle( ( prev ) => ! prev );
 
 	addFilter(
 		'editor.MediaUpload',
@@ -20,25 +21,11 @@ const SiteLogo = () => {
 		replaceMediaUpload
 	);
 
-	const { siteLogo: aiSiteLogo, siteTitleVisible } = useSelect(
-		( select ) => {
-			const { getSiteLogo, getSiteTitleVisible } = select( STORE_KEY );
-
-			return {
-				siteLogo: getSiteLogo(),
-				siteTitleVisible: getSiteTitleVisible(),
-			};
-		},
-		[]
-	);
-
-	const { setWebsiteLogo, setSiteTitleVisible } = useDispatch( STORE_KEY );
-
 	const onSelectImage = ( media ) => {
 		const mediaData = {
 			id: media.id,
 			url: media.url,
-			width: aiSiteLogo.width,
+			width: siteLogo.width,
 		};
 
 		if ( window.location.protocol === 'http:' ) {
@@ -62,43 +49,45 @@ const SiteLogo = () => {
 	};
 
 	const updateValues = ( data ) => {
-		setWebsiteLogo( data );
+		dispatch( {
+			type: 'set',
+			siteLogo: data,
+		} );
+
 		dispatchPostMessage( 'siteLogo', data );
 	};
 
 	const removeImage = () => {
-		updateValues( siteLogoDefault );
+		updateValues( initialState.siteLogo );
 	};
 
 	const onWidthChange = ( width ) => {
 		const newLogoOptions = {
-			...aiSiteLogo,
+			...siteLogo,
 			width,
 		};
 
-		setWebsiteLogo( newLogoOptions );
+		dispatch( {
+			type: 'set',
+			siteLogo: newLogoOptions,
+		} );
+
 		dispatchPostMessage( 'siteLogo', newLogoOptions );
 	};
 
-	const handleOnChangeToggleTitle = () => {
-		setSiteTitleVisible( ! siteTitleVisible );
-		dispatchPostMessage( 'siteTitle', ! siteTitleVisible );
-	};
-
-	/* const resetLogoWidth = ( event ) => {
-		if ( ! siteLogo.url ) {
-			return;
-		}
-		event.stopPropagation();
-		onWidthChange( initialState.siteLogo.width );
-	}; */
+	// const handleOnChangeToggleTitle = () => {
+	// 	dispatchPostMessage( 'siteTitle', ! showTitle );
+	// 	toggleTitle();
+	// };
 
 	useEffect( () => {
-		if ( !! aiBuilderVars.isRTLEnabled ) {
+		if ( !! astraSitesVars?.isRTLEnabled ) {
 			const rangeControl = document.querySelector(
 				'.components-range-control__wrapper'
 			);
-
+			if ( rangeControl === null ) {
+				return;
+			}
 			// Range control slider styling for RTL.
 			const currentValue = rangeControl.children[ 3 ].style.left;
 			rangeControl.children[ 3 ].style.marginRight = '-10px';
@@ -113,34 +102,32 @@ const SiteLogo = () => {
 
 	return (
 		<>
-			<h5 className="!text-zip-dark-theme-heading !text-sm !font-semibold !mb-1">
-				{ __( 'Site Logo', 'ai-builder' ) }
-			</h5>
+			<h5 className="!text-sm !font-semibold !mb-1 !mt-5">Site Logo</h5>
 			<MediaUpload
 				onSelect={ ( media ) => onSelectImage( media ) }
 				allowedTypes={ [ 'image' ] }
-				value={ aiSiteLogo.id }
+				value={ siteLogo.id }
 				render={ ( { open } ) => (
 					<div className="space-y-3">
-						{ !! aiSiteLogo.url && (
-							<div className="w-full py-2.5 px-3 flex items-start justify-start gap-3 rounded-md border border-solid border-zip-dark-theme-border bg-transparent">
+						{ !! siteLogo.url && (
+							<div className="w-full py-2.5 px-3 flex items-start justify-start gap-3 rounded-md border border-solid border-border-tertiary bg-background-primary">
 								<div className="w-full flex items-center justify-between">
 									<div className="flex items-center justify-center rounded-sm bg-zip-dark-theme-border p-1">
 										<img
 											className="w-8 h-8 object-contain"
 											alt={ __(
 												'Site Logo',
-												'ai-builder'
+												'astra-sites'
 											) }
-											src={ aiSiteLogo.url }
+											src={ siteLogo.url }
 										/>
 									</div>
 									<div className="flex items-center justify-end gap-4">
 										<button
 											onClick={ open }
-											className="inline-flex border-0 focus:outline-none bg-transparent text-sm font-normal text-zip-dark-theme-body cursor-pointer"
+											className="inline-flex border-0 focus:outline-none bg-transparent text-sm font-normal cursor-pointer"
 										>
-											{ __( 'Change', 'ai-builder' ) }
+											{ __( 'Change', 'astra-sites' ) }
 										</button>
 										<button
 											onClick={ removeImage }
@@ -153,56 +140,61 @@ const SiteLogo = () => {
 							</div>
 						) }
 
-						{ ! aiSiteLogo.url && (
+						{ ! siteLogo.url && (
 							<button
-								className="w-full py-2.5 px-3 flex items-start justify-start gap-3 rounded-md border border-solid border-zip-dark-theme-border bg-transparent cursor-pointer"
+								className="w-full py-2.5 px-3 flex items-start justify-start gap-3 rounded-md border border-solid border-border-tertiary cursor-pointer bg-background-primary"
 								onClick={ open }
 							>
 								<PhotoIcon className="h-5 w-5 text-zip-app-inactive-icon" />
 								<div className="space-y-5">
-									<p className="text-start !text-white !text-sm !font-normal !leading-5 !m-0">
+									<p className="text-start !text-sm !font-normal !leading-5 !m-0">
 										{ __(
 											'Upload File Here',
-											'ai-builder'
+											'astra-sites'
 										) }
 									</p>
 								</div>
 							</button>
 						) }
-
-						{ aiSiteLogo.url && (
+						{ /* Enable below code when we add site title in classic templates */ }
+						{ /* { siteLogo.url && (
 							<div className="flex items-center justify-between gap-2">
-								<span className="text-sm font-normal text-zip-dark-theme-body">
-									{ __( 'Show site title', 'ai-builder' ) }
+								<span className="text-sm font-normal">
+									{ __( 'Show site title', 'astra-sites' ) }
 								</span>
 								<ToggleSwitch
-									value={ siteTitleVisible }
+									value={ showTitle }
 									onChange={ handleOnChangeToggleTitle }
+									requiredClass={
+										showTitle
+											? 'bg-accent-st-secondary'
+											: 'bg-border-tertiary'
+									}
 								/>
 							</div>
-						) }
+						) } */ }
 
-						{ aiSiteLogo.url && (
+						{ siteLogo.url && (
 							<>
 								<div className="flex items-center justify-between gap-2">
-									<div className="flex-1 text-sm font-normal text-zip-dark-theme-body">
-										{ __( 'Logo width', 'ai-builder' ) }
+									<div className="flex-1 text-sm font-normal">
+										{ __( 'Logo width', 'astra-sites' ) }
 									</div>
 									<div className="w-20 [&_.components\-base\-control\_\_field]:mb-0">
 										<RangeControl
 											className="[&_.components\-range\-control\_\_thumb-wrapper]:border [&_.components\-range\-control\_\_thumb-wrapper]:border-solid [&_.components\-range\-control\_\_thumb-wrapper]:border-white [&_.components\-range\-control\_\_thumb-wrapper]:w-[14px] [&_.components\-range\-control\_\_thumb-wrapper]:h-[14px] [&_.components\-range\-control\_\_thumb-wrapper]:mt-2"
-											value={ aiSiteLogo.width }
+											value={ siteLogo.width }
 											min={ 50 }
 											max={ 250 }
 											step={ 1 }
 											onChange={ ( width ) => {
 												onWidthChange( width );
 											} }
-											trackColor="#3D4592"
-											color="#3D4592"
+											trackColor="#2563EB"
+											color="#2563EB"
 											railColor="#FFFFFF"
 											disabled={
-												'' !== aiSiteLogo.url
+												'' !== siteLogo.url
 													? false
 													: true
 											}
@@ -210,15 +202,15 @@ const SiteLogo = () => {
 										/>
 									</div>
 									<div className="w-16 flex items-center justify-center gap-1 px-2 py-1 pointer-events-none">
-										<span className="text-sm font-normal text-zip-dark-theme-body">
-											{ aiSiteLogo.width }
+										<span className="text-sm font-normal">
+											{ siteLogo.width }
 										</span>
 										<span className="text-sm font-normal text-zip-app-inactive-icon">
 											px
 										</span>
 									</div>
 								</div>
-								<hr className="my-6 border-b-0 border-t border-zip-dark-theme-border w-full" />
+								<hr className="my-6 border-b-0 border-t border-border-tertiary w-full" />
 							</>
 						) }
 					</div>

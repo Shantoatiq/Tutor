@@ -33,7 +33,7 @@ const sseImport = {
 				if ( 'function' === typeof dispatch ) {
 					dispatch( {
 						type: 'set',
-						importStatus: __( 'Importing Content…', 'ai-builder' ),
+						importStatus: __( 'Importing Content…', 'astra-sites' ),
 					} );
 					percentage += 5;
 					dispatch( {

@@ -1,11 +1,12 @@
-import { useEffect, useState } from '@wordpress/element';
+import React, { useEffect, useState } from 'react';
+import { useStateValue } from '../../../../store/store';
+import { FontSelector } from '../../../../components/index';
 import {
 	sendPostMessage,
 	getDefaultTypography,
 	getHeadingFonts,
-} from '../../../utils/functions';
-import { FONTS } from '../../../../customize-site/customize-steps/site-colors-typography/other-fonts';
-import FontSelector from './font-selector';
+} from '../../../../utils/functions';
+import { FONTS } from './other-fonts';
 
 const getFontName = ( fontName, inheritFont ) => {
 	if ( ! fontName ) {
@@ -30,10 +31,7 @@ const getFontName = ( fontName, inheritFont ) => {
 };
 
 const TypographyWrapper = () => {
-	const [ { typographyIndex, templateResponse }, dispatch ] = [
-		{},
-		() => {},
-	]; // Remove this line.
+	const [ { typographyIndex, templateResponse }, dispatch ] = useStateValue();
 	let [ fonts, setFonts ] = useState( FONTS );
 
 	const head = getHeadingFonts( templateResponse );

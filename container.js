@@ -1,4 +1,4 @@
-import { classNames } from '../utils/helpers';
+import { classNames } from '../../utils/functions';
 
 const Container = ( {
 	children,
@@ -9,7 +9,7 @@ const Container = ( {
 	return (
 		<Element
 			className={ classNames(
-				'max-w-container w-full bg-white p-8 flex flex-col rounded-xl shadow-md',
+				'max-w-container w-full bg-white p-8 flex flex-col gap-8 rounded-xl shadow-md',
 				className
 			) }
 			{ ...props }

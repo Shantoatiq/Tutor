@@ -1,42 +1,24 @@
-import { memo, useEffect, useState } from '@wordpress/element';
+import { memo, useEffect, useState } from 'react';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
-import { useSelect, useDispatch } from '@wordpress/data';
-import { __, sprintf } from '@wordpress/i18n';
-import { classNames } from '../helpers';
-import { LIGHT_PALETTES, DARK_PALETTES } from '../ui/colors';
-import { sendPostMessage as dispatchPostMessage } from '../utils/helpers';
-import { STORE_KEY } from '../store';
+import {
+	getLightColorPalette,
+	getDarkColorPalette,
+} from '../customize-site/customize-steps/site-colors-typography/colors';
+import { useStateValue } from '../../store/store';
+import {
+	sendPostMessage as dispatchPostMessage,
+	getDefaultColorPalette,
+	getColorScheme,
+	classNames,
+} from '../../utils/functions';
 import { TilesIcon } from '../ui/icons';
-
-const getColorScheme = ( value ) => {
-	if ( Array.isArray( value ) ) {
-		return value.length > 0 ? DARK_PALETTES : LIGHT_PALETTES;
-	}
-
-	return ! value ? LIGHT_PALETTES : DARK_PALETTES;
-};
+import { __ } from '@wordpress/i18n';
 
 const ColorPalettes = () => {
-	const {
-		stepData: {
-			selectedTemplate,
-			templateList,
-			activeColorPalette: selectedPalette,
-		},
-	} = useSelect( ( select ) => {
-		const { getAIStepData } = select( STORE_KEY );
-
-		return {
-			stepData: getAIStepData(),
-		};
-	}, [] );
-	const { setWebsiteColorPalette, setDefaultColorPalette } =
-		useDispatch( STORE_KEY );
-	const selectedTemplateItem = templateList?.find(
-		( item ) => item?.uuid === selectedTemplate
-	)?.design_defaults;
+	const [ { activePalette: selectedPalette, templateResponse }, dispatch ] =
+		useStateValue();
 	const [ colorScheme, setColorScheme ] = useState(
-		getColorScheme( selectedTemplateItem?.color_scheme )
+		getLightColorPalette( templateResponse )
 	);
 
 	const sendPostMessage = ( data ) => {
@@ -44,52 +26,56 @@ const ColorPalettes = () => {
 	};
 
 	const handleChange = ( palette ) => () => {
-		if ( selectedPalette.slug === palette.slug ) {
-			return;
-		}
 		sendPostMessage( {
 			param: 'colorPalette',
 			data: palette,
 		} );
-		setWebsiteColorPalette( palette );
+		dispatch( {
+			type: 'set',
+			activePalette: palette,
+		} );
 	};
 
 	useEffect( () => {
-		const defaultColorPalettes = !! selectedTemplateItem
-			? Object.values( selectedTemplateItem.color_palette ).filter(
-					( item ) => Array.isArray( item )
-			  )
-			: [];
-		const defaultPaletteValues = !! selectedTemplateItem
-			? defaultColorPalettes.map( ( palette, index ) => ( {
-					id: `default-${ index }`,
-					slug: 'default',
-					title:
-						defaultColorPalettes.length > 1
-							? sprintf(
-									/* translators: %s: index */
-									__( `Original %1$s`, 'ai-builder' ),
-									index + 1
-							  )
-							: __( 'Original', 'ai-builder' ),
-					colors: palette,
-			  } ) )
-			: [];
-		const scheme = getColorScheme( selectedTemplateItem?.color_scheme );
+		const defaultPaletteValues = getDefaultColorPalette( templateResponse );
+		let scheme =
+			'light' === getColorScheme( templateResponse )
+				? getLightColorPalette( templateResponse )
+				: getDarkColorPalette( templateResponse );
 
-		setColorScheme( [
-			...defaultPaletteValues,
-			...scheme,
-			{
-				slug: 'custom',
-				title: __( 'Custom', 'ai-builder' ),
-				colors: [],
-			},
-		] );
-		if ( ! selectedPalette ) {
-			setDefaultColorPalette( defaultPaletteValues[ 0 ] );
+		const customColors =
+			templateResponse?.[ 'astra-custom-palettes' ] || [];
+		if ( customColors.length && customColors.length % 2 === 0 ) {
+			let colors = customColors;
+
+			const customColorsSet = [];
+			colors.map( ( value ) => {
+				const obj = {
+					slug: value.slug,
+					title: value.slug,
+				};
+				const sampleColors = [ ...scheme[ 0 ].colors ];
+				sampleColors[ 0 ] = value.colors[ 0 ];
+				sampleColors[ 1 ] = value.colors[ 1 ];
+				obj.colors = sampleColors;
+				customColorsSet.push( obj );
+				return customColorsSet;
+			} );
+			colors = [ ...customColorsSet, ...scheme ];
+			colors.map( ( value, i ) => {
+				colors[ i ].title = 'Style' + ( i + 1 );
+				colors[ i ].slug = 'style-' + ( i + 1 );
+				return colors;
+			} );
+
+			scheme = colors;
 		}
-	}, [] );
+		setColorScheme( [ ...defaultPaletteValues, ...scheme ] );
+		dispatch( {
+			type: 'set',
+			activePalette: defaultPaletteValues[ 0 ],
+		} );
+	}, [ templateResponse ] );
 
 	const handleReset = () => {
 		const defaultPalette = colorScheme[ 0 ];
@@ -97,22 +83,25 @@ const ColorPalettes = () => {
 			param: 'colorPalette',
 			data: defaultPalette,
 		} );
-		setWebsiteColorPalette( defaultPalette );
+		dispatch( {
+			type: 'set',
+			activePalette: defaultPalette,
+		} );
 	};
 
 	return (
 		<div className="space-y-2">
 			<div className="flex items-center justify-between">
-				<p className="text-zip-dark-theme-heading text-sm">
+				<p className="text-zip-app-heading text-sm">
 					<span className="font-semibold">
-						{ __( 'Color Palette', 'ai-builder' ) }:{ ' ' }
+						{ __( 'Color Palette', 'astra-sites' ) }:{ ' ' }
 					</span>
 					<span>{ selectedPalette?.title }</span>
 				</p>
 				<button
 					key="reset-to-default-colors"
 					className={ classNames(
-						'inline-flex p-px items-center justify-center text-zip-dark-theme-content-background border-0 bg-transparent focus:outline-none transition-colors duration-200 ease-in-out',
+						'inline-flex p-px items-center justify-center text-button-disabled border-0 bg-transparent focus:outline-none transition-colors duration-200 ease-in-out',
 						selectedPalette?.slug !== 'default' &&
 							'text-zip-app-inactive-icon cursor-pointer'
 					) }
@@ -131,9 +120,9 @@ const ColorPalettes = () => {
 					<div
 						key={ colorPalette.slug }
 						className={ classNames(
-							'flex justify-center items-center gap-3 text-body-text rounded-md border border-solid border-zip-dark-theme-border h-9 w-full cursor-pointer',
+							'flex justify-center items-center gap-3 text-body-text rounded-md border border-solid border-button-disabled h-9 w-full cursor-pointer',
 							selectedPalette?.slug === colorPalette.slug &&
-								'outline-1 outline outline-offset-2 outline-outline-color'
+								'outline-1 outline outline-offset-2 outline-accent-st-secondary'
 						) }
 						onClick={ handleChange( colorPalette ) }
 					>

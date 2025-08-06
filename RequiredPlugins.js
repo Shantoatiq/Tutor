@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useState, useEffect } from '@wordpress/element';
-const { imageDir } = aiBuilderVars;
+const { imageDir } = starterTemplates;
 
 // Plugin icon path mapper - O(1) lookup performance.
 const PLUGIN_ICON_MAP = {
@@ -24,7 +24,7 @@ const PLUGIN_ICON_MAP = {
 	'woo-cart-abandonment-recovery': 'cartflows-ca.png',
 	wpforms: 'wpforms.png',
 	'wpforms-lite': 'wpforms.png',
-	'wp-live-chat-support': 'w3x.png',
+	'wp-live-chat-support': '3cx.png',
 };
 
 const RequiredPlugins = ( { pluginsList } ) => {
@@ -53,7 +53,7 @@ const RequiredPlugins = ( { pluginsList } ) => {
 					<p className="text-sm">
 						{ __(
 							'The following plugins will be installed and activated for the selected features:',
-							'ai-builder'
+							'astra-sites'
 						) }
 					</p>
 
@@ -61,7 +61,7 @@ const RequiredPlugins = ( { pluginsList } ) => {
 						<span className="text-alert-error">{ '* ' }</span>
 						{ __(
 							'Required plugins for the website',
-							'ai-builder'
+							'astra-sites'
 						) }
 					</p>
 				</div>
