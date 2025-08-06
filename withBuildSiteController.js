@@ -1,8 +1,8 @@
 import { Fragment } from '@wordpress/element';
-import useBuildSiteController from '../../hooks/useBuildSiteController';
-import PreBuildConfirmModal from '../pre-build-confirm-modal';
-import PremiumConfirmModal from '../premium-confirm-modal';
-import InformPrevErrorModal from '../inform-prev-error-modal';
+import useBuildSiteController from '../hooks/useBuildSiteController';
+import PreBuildConfirmModal from '../components/pre-build-confirm-modal';
+import PremiumConfirmModal from '../components/premium-confirm-modal';
+import InformPrevErrorModal from '../components/inform-prev-error-modal';
 
 const withBuildSiteController = ( WrappedComponent ) => {
 	const WithBuildSiteController = ( { ...props } ) => {
